@@ -1,0 +1,41 @@
+.myform .row{
+    padding: 30px 0;
+    box-shadow: inset 0 0 100px #2983ef47;
+    border: 1px solid #2a80f073;
+}
+.myform form{
+    position: relative;
+    display: block;
+    padding: 40px 15px 70px;
+}
+.myform .row .form-control{
+    height: calc(1.5em + 1.75rem + 2px);
+}
+@media (max-width: 992px){
+    .xs-w-full{
+        width: 100%;
+    }
+    .myform .row .form-group{
+        width: 100%;
+    }
+    .xs-px-5{
+        padding-left: 15px !important;
+        padding-right: 15px !important;
+    }
+}
+.error{
+    color: red;
+}
+.nav-tabs .nav-link.active, .nav-tabs .nav-item.show .nav-link {
+    color: #495057;
+    background-color: #f8fafc;
+    border-color: transparent;
+    border: none;
+    border-bottom: 4px solid #3490dc;
+}
+.nav-tabs .nav-link{
+    border: 0px solid transparent;
+}
+.select2{
+    width: 100% !important;
+}

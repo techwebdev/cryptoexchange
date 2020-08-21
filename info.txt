@@ -1,0 +1,7 @@
+Connection info string:
+   "dbname=d43ctlfq97okcs host=ec2-23-22-156-110.compute-1.amazonaws.com port=5432 user=ruuwleymjpknro password=5d46c51cdd8de588fd17391d2997ffc86df3e6eba4889ca2574a22baca475a4d sslmode=require"
+Connection URL:
+   postgres://ruuwleymjpknro:5d46c51cdd8de588fd17391d2997ffc86df3e6eba4889ca2574a22baca475a4d@ec2-23-22-156-110.compute-1.amazonaws.com:5432/d43ctlfq97okcs
+
+
+heroku git:remote -a cryptoexchnage 

@@ -1,0 +1,214 @@
+@extends('layouts.app')
+
+@section('content')
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">{{ __('Payment Info') }}</div>
+                <div class="card-body">
+					<?php
+                	$satoshi_amount = $amount / 100000000;
+                	/*$now = Carbon::now();
+    				$to = Carbon::parse('2020-8-1 00:00:00')->format('Y-m-d H:i:s');
+    				$diff = $now->diffInHours($to);
+    				echo $diff;die;*/
+     //            	// $api = 'https://api.blockchain.info/merchant/6108261b-94a2-4603-b035-a61932383540/receive/new_address?password=Shreeji@1&second_password=&label=Order No : 1234';
+     //            	$api = 'http://5ae6fed16122.ngrok.io/merchant/6108261b-94a2-4603-b035-a61932383540/new_address?password=Shreeji@1';
+     //            	$client = new \GuzzleHttp\Client();
+					// $response = $client->request('GET',$api);
+					// $result = json_decode($response->getBody()->getContents());
+					// $payTo = $result->address;
+                	// $app_callback_url = URL::to("callback.php?invoice=".$orderID."&secret=".$secretKey);
+                	// echo $app_callback_url;die;
+					$app_receive_url = "https://api.blockchain.info/v2/receive?key=".$secretKey."&xpub=".$xpubKey."&callback=".urlencode($app_callback_url).'&gap_limit='.($gap->gap + 1).'';					
+					// print_r($app_receive_url);die;
+                	if(isset($_SESSION['pay_address_ispaid']) && !(bool)$_SESSION['pay_address_ispaid']){
+  						$payTo = $_SESSION['pay_address'];
+					}else{
+						/*$client = new \GuzzleHttp\Client();
+						$response = $client->request('GET',$app_receive_url);
+						$result = $response->getBody()->getContents();
+						print_r($response);die;*/
+					  $ch = curl_init();
+					  curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+					  curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+					  curl_setopt($ch, CURLOPT_URL, $app_receive_url);
+					  $ccc = curl_exec($ch);
+					  $json = json_decode($ccc, true);
+					  
+					  // print_r($json);die;
+					  if(isset($json['address'])){
+						//
+						$chkAddress = DB::table('bitcoin_payments')->where('from_address',[$json['address']])->first();
+						session(['pay_address'=>$json['address']]);//this can be added to the Database
+						if(isset($chkAddress) && $chkAddress->status == "1"){
+							session(['pay_address_ispaid'=>true]);//this can be read from the Database
+						}else{
+							session(['pay_address_ispaid'=>false]);//this can be read from the Database
+						}
+					    $payTo = $json['address']; //the newly created address will be stored under 'address' in the JSON response
+						if($payTo != ""){
+							if(empty($chkAddress)){
+								$transferAmount = \DB::table('exchange_rates')->where('from_currency',session('from_currency'))->where('to_currency',session('to_currency'))->first();
+								// echo "<pre>";print_r($transferAmount->amount * $amount);die;
+								$bitCoin = \DB::table('bitcoin_payments')->insert(['user_id' => Auth::user()->id, 'from_address' => $payTo,'to_address'=>'','order_id'=>$orderID,'actual_amount'=>$amount,'receive_amount'=>'','fees'=>'','status'=>'0','created_at'=>Carbon::now()]);
+								$rave = \DB::table('raves')->insert(['user_id' => Auth::user()->id, 'bitcoin_id' => DB::getPdo('bitcoin_payments')->lastInsertId(),'txn_id'=>'','txn_Ref'=>'','currency'=>'','amount'=>'','charges'=>'0','txn_status'=>'0','created_at'=>Carbon::now()]);
+								$transaction = \DB::table('transactions')->insert(['user_id' => Auth::user()->id, 'rave_id' => DB::getPdo('raves')->lastInsertId(),'amount'=>$amount,'transferAmount'=>$transferAmount->amount * $amount,'charges'=>'0','from_currency'=>session('from_currency'),'to_currency'=>session('to_currency'),'status'=>'0','created_at'=>Carbon::now()]);
+							}
+						}
+					  }else{
+					  	return redirect()->back()->with('error',$json['message']);
+					    // header('Location: error_page.php?msg='.$json['message']." - ".$json['description']);
+					  }
+					}
+					?>
+                	@push('scripts')
+					<!-- TOASTR ALERT OPTIONAL -->
+					<link href="{{ asset('assets/toastr/toastr.css') }}" rel="stylesheet">
+					<link href="{{ asset('assets/example_1.css') }}" rel="stylesheet">
+					<script src="{{ asset('assets/toastr/toastr.js') }}"></script>
+					<script type="text/javascript">
+						setInterval(function(){
+							// console.log("hello");
+							chekConfirmation();
+						},10000);
+						function chekConfirmation(){
+							var address = '<?php echo $payTo ?>';
+							$.ajax({
+								url:"{{ route('checkConfirmation') }}",
+								type:"POST",
+								data:{address:address},
+								success:function(response){
+									if(response.success && response.success == "1" && response.data && (response.data.confirmations >= 0 || response.data.confirmations >= "0")){
+										window.location.href = response.redirect_url;
+									}
+								}
+							});
+						}
+					</script>	
+					<!-- Web Soket -->
+                	<!-- <script>
+						var btcs = new WebSocket('<?= $app_webSocketURL ?>');
+						  console.log(btcs)
+						btcs.onopen = function(){
+						  btcs.send( JSON.stringify( {"op":"addr_sub", "addr":"<?= $payTo ?>"} ) );
+						};
+						btcs.onmessage = function(onmsg){
+						  var response = JSON.parse(onmsg.data);
+						  console.log(response)
+						  var hash = response.x.hash;
+						  var getOuts = response.x.out;
+						  var countOuts = getOuts.length;
+						  var getInputs = response.x.inputs;
+						  var countInputs = getInputs.length;
+						  for(var j = 0;j<countInputs;j++){
+						  	var inputAdd = response.x.inputs[j].prev_out.addr;
+						  	var receive_amount = response.x.inputs[j].prev_out.value;
+						  	var inScript = response.x.inputs[j].prev_out.script;
+						  }
+						  for(var i = 0; i < countOuts; i++)
+						  {
+						      //check every output to see if it matches specified address
+						      var outScript = response.x.out[i].script;
+						      var outAdd = response.x.out[i].addr;
+						      var specAdd = "<?= $payTo ?>";
+						      var expectedAmnt = "<?= $satoshi_amount ?>";
+						      if (outAdd == specAdd )
+						      {
+						        //var expectedAmnt = expectedval / 100000000;
+						        var amount = response.x.out[i].value;
+						        var calAmount = amount / 100000000;
+						        //check if amount sent is equal to the expected
+						        if(calAmount < expectedAmnt){
+						          toastr.error("Received "+calAmount+" BTC amount was lower than the expected ");
+						        }
+						        	// transactionInfo(outAdd,inputAdd,hash,outScript,calAmount)
+						        	chekConfirmation();
+						        	$('#messages').removeClass('text-warning').addClass('text-success').html("<span class='text text-success'><i class='fa fa-thumbs-o-up'></i> Your payment of " + calAmount + " BTC has been Received </span>");
+						        	//uses toastr/toastr.js and toastr/toastr.css
+						        	toastr.success("Received " + calAmount + " BTC");
+						        // if(outScript == inScript){
+						        // }
+
+						        var beep_notify_sound = <?= $beed_notify ?>;
+						        if(beep_notify_sound == true){
+						         var snd = new  Audio("<?= $beed_sound_code ?>");  
+						         snd.play();
+						        }
+						      } 
+						  }
+						}
+						function chekConfirmation(){
+							var address = '<?php echo $payTo ?>';
+							$.ajax({
+								url:"{{ route('checkConfirmation') }}",
+								type:"POST",
+								data:{address:address},
+								success:function(response){
+									if(response.success && response.success == "1" && response.data.length > 0){
+										window.location.href = response.redirect_url;
+									}
+								}
+							});
+						}
+						/*function transactionInfo(payto,payUser,hash,outScript,receive_amount){
+							$.ajax({
+								url:"{{ route('btcPayment') }}",
+								type:"POST",
+								data:{payto:payto,payUser:payUser,hash:hash,script:outScript,receive_amount:receive_amount},
+								beforeSend:function(){
+									
+								},
+								success:function(response){
+									console.log(response)
+									alert(response.msg)
+									if(response.success && response.success == "1"){
+										window.location.href = response.redirect_url;
+									}
+									// alert(response);
+								},
+								error:function(error){
+									toastr.error(error);
+								}
+							})
+						}*/
+						</script> -->
+                	@endpush
+                	@stack('scripts')
+                	<!-- <div class="jumbotron">
+					  <h1 class="text text-secondary text-center"><?= $amount ?> BTC</h1>
+					</div> -->
+					<div class="col-md-12">
+					    <div class="offer offer-warning" id="Example2PaymentBox_<?= $orderID ?>">
+					      <div class="shape">
+					        <div class="shape-text">
+					          BTC               
+					        </div>
+					      </div>
+					      <div class="offer-content mt-3">
+					        <h3 class="lead">
+					          Send <b><?= $amount ?> BTC</b>
+					        </h3>
+					        <p>
+					        <div class="col-sm-4 col-md-4 col-lg-4">
+					          <img src="https://chart.googleapis.com/chart?chs=125x125&cht=qr&chl=bitcoin:<?= $payTo ?>?amount=<?= $amount ?>&choe=UTF-8"  class="img-responsive">
+					        </div>
+					        <div class="col-sm-8 col-md-8 col-lg-8" style="padding:10px;">
+					          Send <b><?= $amount ?> BTC</b><br/><input type="text" id="address_<?= $orderID ?>" class="form-control" value="<?= $payTo ?>" onclick="this.select();" readonly>
+					          Simply scan QR Code with your mobile device or copy one in the input box<br/><br/>
+					          <small class="text text-secondary" id="messages">
+					          No need to refresh page, your payment status will be updated automatically.<br/>
+					          <span class="text text-info"><i class="fa fa-spin fa-circle-o-notch"></i> Awaiting <?= $amount ?> bitcoin payment ....</span>
+					          </small>
+					        </div>
+					        </p>
+					      </div>
+					    </div>
+					</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@endsection
