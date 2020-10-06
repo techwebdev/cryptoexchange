@@ -78,3 +78,4 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
 ## access using git hub  set ssh or public key 
+- if you use multiple ssh key then try git config -e and change your ssh key
